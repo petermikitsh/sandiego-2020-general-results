@@ -12,10 +12,7 @@ module.exports = (env) => {
   const isDevMode = !!(env && env.dev);
   return {
     devtool: isDevMode ? 'eval-source-map' : 'source-map',
-    entry: [
-      'fontsource-dm-mono/400.css',
-      path.resolve(__dirname, 'src/index.ts'),
-    ],
+    entry: ['fontsource-dm-mono/400.css', path.resolve(__dirname, 'src')],
     mode: isDevMode ? 'development' : 'production',
     module: {
       rules: [
