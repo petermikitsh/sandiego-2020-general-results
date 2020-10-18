@@ -51,6 +51,10 @@ module.exports = (env) => {
         },
       ].filter(Boolean),
     },
+    output: {
+      filename: '[id].[hash].js',
+      chunkFilename: '[id].[hash].js',
+    },
     plugins: [
       new HtmlWebpackPlugin({
         releaseLabel: `${version} [${gitSha}:${isDevMode ? 'dev' : 'prod'}]`,
