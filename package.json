@@ -1,13 +1,23 @@
 {
   "name": "sandiego-2020-general-results",
+  "private": true,
   "version": "0.0.0",
   "description": "Data visualizations for San Diego's 2020 General Election",
   "scripts": {
-    "build": "webpack",
+    "build": "npm-run-all --sequential --print-label 'build:*'",
+    "build:client": "webpack",
+    "build:data": "node scripts/build:data.js",
     "clean": "rimraf dist",
-    "deploy": "gh-pages -d dist",
+    "deploy": "npm-run-all --parallel --print-label 'deploy:*'",
+    "deploy:site": "gh-pages -d dist",
+    "deploy:data": "gh-pages -d data --dest data",
     "lint": "eslint 'src/**/*.{js,ts,tsx}'",
-    "start": "webpack-dev-server --hot --env.dev"
+    "start": "npm-run-all --parallel --print-label 'start:*'",
+    "start:proxy": "serve --listen 8081",
+    "start:server": "webpack-dev-server --hot --env.dev",
+    "serve": "npm-run-all --parallel --print-label 'serve:*'",
+    "serve:proxy": "http-proxy --port 8080 -P /sandiego-2020-general-results=https://petermikitsh.github.io/sandiego-2020-general-results 8081",
+    "serve:server": "http-server dist -p 8081"
   },
   "repository": {
     "type": "git",
@@ -19,15 +29,28 @@
     "url": "https://github.com/petermikitsh/sandiego-2020-general-results/issues"
   },
   "homepage": "https://github.com/petermikitsh/sandiego-2020-general-results#readme",
+  "resolutions": {
+    "history": "4.5.1"
+  },
   "devDependencies": {
     "@babel/core": "^7.11.6",
+    "@material-ui/core": "^4.11.0",
+    "@material-ui/icons": "^4.9.1",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.4.2",
+    "@types/d3-scale-chromatic": "^2.0.0",
     "@types/react": "^16.9.50",
     "@types/react-dom": "^16.9.8",
+    "@types/react-router-dom": "^5.1.5",
+    "@types/styled-components": "^5.1.4",
     "@typescript-eslint/eslint-plugin": "^4.3.0",
     "@typescript-eslint/parser": "^4.3.0",
     "babel-loader": "^8.1.0",
+    "big-json": "^3.1.0",
     "css-loader": "^4.3.0",
+    "csvtojson": "^2.0.10",
+    "d3-interpolate": "^2.0.1",
+    "d3-scale-chromatic": "^2.0.0",
+    "date-fns": "^2.16.1",
     "eslint": "^7.10.0",
     "eslint-config-prettier": "^6.12.0",
     "eslint-plugin-prettier": "^3.1.4",
@@ -37,18 +60,23 @@
     "fontsource-dm-mono": "^3.0.5",
     "gh-pages": "^3.1.0",
     "html-webpack-plugin": "^4.5.0",
+    "mapshaper": "^0.5.23",
+    "npm-run-all": "^4.1.5",
     "prettier": "^2.1.2",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
     "react-refresh": "^0.8.3",
     "rimraf": "^3.0.2",
+    "serve": "^11.3.2",
     "stats-webpack-plugin": "^0.7.0",
     "style-loader": "^1.2.1",
+    "styled-components": "^5.2.0",
     "ts-loader": "^8.0.4",
     "typescript": "^4.0.3",
     "webpack": "^4.44.2",
     "webpack-cli": "^3.3.12",
-    "webpack-dev-server": "^3.11.0"
+    "webpack-dev-server": "^3.11.0",
+    "xml2js": "^0.4.23"
   },
   "prettier": {
     "tabWidth": 2,
@@ -56,5 +84,11 @@
     "singleQuote": true,
     "trailingComma": "all",
     "arrowParens": "always"
+  },
+  "dependencies": {
+    "@visx/visx": "^1.0.0",
+    "http-proxy-cli": "^2.1.0",
+    "http-server": "^0.12.3",
+    "react-router-dom": "^5.2.0"
   }
 }

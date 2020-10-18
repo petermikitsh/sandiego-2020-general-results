@@ -12,7 +12,8 @@
     "jsx": "react",
     "resolveJsonModule": true,
     "strict": true,
-    "preserveWatchOutput": true
+    "preserveWatchOutput": true,
+    "downlevelIteration": true
   },
   "include": ["src"]
 }

@@ -1,0 +1,9 @@
+{
+  "public": "data",
+  "rewrites": [
+    {
+      "source": "/sandiego-2020-general-results/data/:suffix+",
+      "destination": "/:suffix"
+    }
+  ]
+}

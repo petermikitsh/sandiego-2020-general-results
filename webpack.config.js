@@ -11,6 +11,14 @@ const gitSha = gitShaBuffer.toString().trim();
 module.exports = (env) => {
   const isDevMode = !!(env && env.dev);
   return {
+    devServer: {
+      proxy: {
+        '/sandiego-2020-general-results': {
+          target: 'http://0.0.0.0:8081',
+          changeOrigin: true,
+        },
+      },
+    },
     devtool: isDevMode ? 'eval-source-map' : 'source-map',
     entry: ['fontsource-dm-mono/400.css', path.resolve(__dirname, 'src')],
     mode: isDevMode ? 'development' : 'production',
