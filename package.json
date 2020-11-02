@@ -8,7 +8,7 @@
     "build:client": "webpack",
     "build:data": "node scripts/build:data.js",
     "clean": "rimraf dist",
-    "deploy": "npm-run-all --parallel --print-label 'deploy:*'",
+    "deploy": "npm-run-all --sequential --print-label 'deploy:*'",
     "deploy:site": "gh-pages -d dist",
     "deploy:data": "gh-pages -d data --dest data",
     "lint": "eslint 'src/**/*.{js,ts,tsx}'",
