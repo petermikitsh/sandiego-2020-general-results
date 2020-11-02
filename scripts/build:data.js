@@ -65,7 +65,7 @@ if (!existsSync(OUT_PATH)) {
         name: (() => {
           switch (electionId) {
             case '8':
-              return 'March 5, 2020 Primary';
+              return 'March 3, 2020 Primary';
             case '10':
               return 'November 3, 2020 General';
           }
@@ -127,6 +127,10 @@ if (!existsSync(OUT_PATH)) {
           resultId,
         );
 
+        const summary = await xmlParser.parseStringPromise(
+          readFileSync(path.resolve(resultDir, `summary_${electionId}.xml`)),
+        );
+
         const fullPath = path.resolve(resultDir, `precincts_${electionId}.csv`);
         // key: contest name, value: array of results
         const resultSet = {};
@@ -149,6 +153,7 @@ if (!existsSync(OUT_PATH)) {
             }) => {
               if (!resultSet[contestName]) {
                 resultSet[contestName] = {
+                  createdAt: summary?.NewDataSet?.GeneratedDate?.[0],
                   summary: {},
                   results: [],
                 };
@@ -178,10 +183,9 @@ if (!existsSync(OUT_PATH)) {
                 try {
                   createWriteStream(
                     getWritePath(
-                      `${electionId}_${resultId}_${contestName}.json`.replace(
-                        /\//g,
-                        '_',
-                      ),
+                      encodeURIComponent(
+                        `${electionId}_${resultId}_${contestName}.json`,
+                      ).replace(/%/g, ''),
                     ),
                   ).write(JSON.stringify(value));
                 } catch (err) {

@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import type { default as Metadata } from '../data/metadata.json';
-import type { Election, ResultSet } from './types';
+import { default as Metadata } from '../data/metadata.json';
+import type { Election, Consolidations, ResultSet, Precincts } from './types';
 
-export type ContestSummary = { [key: string]: number } & { timestamp: string };
+export type ContestSummary = {
+  createdAt: string;
+  summary: { [key: string]: number };
+  results: ResultSet;
+};
 
 async function getFile<T>(file: string) {
   const result: T = await (
@@ -12,6 +16,7 @@ async function getFile<T>(file: string) {
 }
 
 export interface AppContext {
+  contests: { [key: string]: string[] };
   currElectionId: string;
   setCurrElectionId?(id: string): void;
   currResultId: string;
@@ -19,9 +24,7 @@ export interface AppContext {
   currContestId: string;
   setCurrContestId?(id: string): void;
   metadata?: typeof Metadata;
-  setMetadata?(metadata: typeof Metadata): void;
-  electionData?: Election;
-  resultSet?: ResultSet;
+  maps?: { [key: string]: Election };
   getContestSummary?(
     electionId: string,
     contestId: string,
@@ -29,6 +32,7 @@ export interface AppContext {
 }
 
 export const AppContext = React.createContext<AppContext>({
+  contests: {},
   currContestId: '',
   currResultId: '',
   currElectionId: '',
@@ -38,35 +42,32 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [currElectionId, setCurrElectionId] = useState<string>('');
   const [currResultId, setCurrResultId] = useState<string>('');
   const [currContestId, setCurrContestId] = useState<string>('');
-  const [metadata, setMetadata] = useState<typeof Metadata>();
-  const [electionData, setElectionData] = useState<Election>();
-  const [resultSet, setResultSet] = useState<ResultSet>();
-  const [allResultSets, setAllResultSets] = useState<{
-    [key: string]: ResultSet[];
-  }>({});
+  const [metadata] = useState<typeof Metadata>(() => Metadata);
+  const [maps, setMaps] = useState<AppContext['maps']>({});
+  const [contests, setContests] = useState<AppContext['contests']>({});
 
   useEffect(() => {
-    (async () => {
-      if (!metadata) {
-        const meta = await getFile<typeof Metadata>('metadata.json');
-        setMetadata(meta);
-        setCurrElectionId(meta[0].electionId);
-        setCurrResultId(meta[0].results[0].resultId);
-      }
-    })();
+    setCurrElectionId(metadata[0].electionId);
+    setCurrResultId(metadata[0].results[0].resultId);
   }, [metadata]);
 
   useEffect(() => {
     (async () => {
       if (currElectionId) {
-        const newElectionData = await getFile<Election>(
-          `${currElectionId}.json`,
+        const precincts = await getFile<Precincts>(
+          `${currElectionId}_precincts.json`,
         );
-        setElectionData(newElectionData);
-        const currElection = metadata?.find(
+        const consolidations = await getFile<Consolidations>(
+          `${currElectionId}_consolidations.json`,
+        );
+        setMaps((prevValue) => ({
+          ...prevValue,
+          [currElectionId]: { id: currElectionId, precincts, consolidations },
+        }));
+        const currElection = metadata.find(
           ({ electionId }) => electionId === currElectionId,
         );
-        setCurrResultId?.(currElection?.results[0].resultId as string);
+        setCurrResultId(currElection?.results[0].resultId as string);
       }
     })();
   }, [currElectionId, metadata, setCurrResultId]);
@@ -74,21 +75,26 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     (async () => {
       if (currElectionId && currResultId) {
-        const newResults = await getFile<ResultSet>(
-          `${currElectionId}_${currResultId}.json`,
-        );
-        setResultSet(newResults);
-        const contestId = [
-          ...new Set(newResults?.map((result) => result.contest)),
-        ][0];
-        setCurrContestId?.(contestId);
+        if (!contests[currElectionId]) {
+          const newContests = await getFile<string[]>(
+            `${currElectionId}_contests.json`,
+          );
+          setContests((prevValue) => ({
+            ...prevValue,
+            [currElectionId]: newContests,
+          }));
+          setCurrContestId(newContests[0]);
+        } else {
+          setCurrContestId(contests[currElectionId][0]);
+        }
       }
     })();
-  }, [currElectionId, currResultId, setCurrContestId]);
+  }, [currElectionId, currResultId, contests, setCurrContestId, setContests]);
 
   return (
     <AppContext.Provider
       value={{
+        contests,
         currElectionId,
         setCurrElectionId,
         currResultId,
@@ -96,58 +102,27 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         currContestId,
         setCurrContestId,
         metadata,
-        setMetadata,
-        electionData,
-        resultSet,
+        maps,
         getContestSummary: async (eId, contestId) => {
-          const results = await (async () => {
-            if (!allResultSets[eId]) {
-              const resultIds = metadata
-                ?.find(({ electionId }) => electionId === eId)
-                ?.results.map((result) => result.resultId);
+          const sanitizedContestId = encodeURIComponent(contestId).replace(
+            /%/g,
+            '',
+          );
+          const resultIds = metadata
+            .find(({ electionId }) => electionId === eId)
+            ?.results.map((result) => result.resultId);
 
-              if (resultIds) {
-                const results = await Promise.all<ResultSet>(
-                  resultIds.map((resultId) =>
-                    getFile(`${eId}_${resultId}.json`),
-                  ),
-                );
-                setAllResultSets({
-                  ...allResultSets,
-                  [eId]: results,
-                });
-                return results;
-              }
+          const data = (
+            await Promise.all<ContestSummary>(
+              (resultIds || []).map(async (resultId) =>
+                getFile<ContestSummary>(
+                  `${eId}_${resultId}_${sanitizedContestId}.json`,
+                ),
+              ),
+            )
+          ).reverse();
 
-              return;
-            }
-            return allResultSets[eId];
-          })();
-
-          const summary = results
-            ?.map((resultSet, index) => {
-              return resultSet.reduce(
-                (acc, currResult) => {
-                  if (currResult.contest !== contestId) {
-                    return acc;
-                  }
-                  if (!acc[currResult.candidate]) {
-                    acc[currResult.candidate] = currResult.votes;
-                  } else {
-                    acc[currResult.candidate] += currResult.votes;
-                  }
-                  return acc;
-                },
-                {
-                  timestamp: metadata?.find(
-                    (election) => election.electionId === eId,
-                  )?.results[index].createdAt,
-                } as ContestSummary,
-              );
-            })
-            .reverse();
-
-          return summary;
+          return data;
         },
       }}
     >

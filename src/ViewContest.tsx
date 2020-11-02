@@ -52,23 +52,17 @@ export const ViewContest = () => {
     getContestSummary,
   } = useContext(AppContext);
 
-  const lineGraph = React.useRef<React.ReactNode>(null);
+  const [lineGraph, setLineGraph] = React.useState<React.ReactNode>(null);
   const [contestSummary, setContestSummary] = useState<ContestSummary[]>();
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { timestamp, ...candidates } =
-    contestSummary?.[contestSummary.length - 1] || {};
-  const candidateNames = Object.keys(candidates);
+  const { summary = {} } = contestSummary?.[contestSummary.length - 1] || {};
+  const voteCount = Object.values(summary).reduce((sum, x) => sum + x, 0);
+  const candidateNames = Object.keys(summary);
 
-  const candidateNamesByVoteCount = candidateNames?.sort((a, b) => {
-    return (candidates as any)[b] - (candidates as any)[a];
+  const ordinalColorScale = scaleOrdinal<string, string>({
+    domain: candidateNames,
+    range: quantize(interpolateTurbo, candidateNames.length),
   });
-  const ordinalColorScale = candidateNames
-    ? scaleOrdinal<string, string>({
-        domain: candidateNames,
-        range: quantize(interpolateTurbo, candidateNames.length),
-      })
-    : undefined;
 
   React.useEffect(() => {
     (async () => {
@@ -85,7 +79,7 @@ export const ViewContest = () => {
       const BOTTOM_MARGIN = 50;
       const TOP_MARGIN = 10;
       const RIGHT_MARGIN = 0;
-      const date = (cs: ContestSummary) => new Date(cs.timestamp).valueOf();
+      const date = (cs: ContestSummary) => new Date(cs.createdAt).valueOf();
 
       const oldestReportDate = Math.min(...contestSummary.map(date));
       const newestReportDate = Math.max(...contestSummary.map(date));
@@ -93,26 +87,22 @@ export const ViewContest = () => {
         domain: [oldestReportDate, newestReportDate],
       }).range([0, WIDTH - LEFT_MARGIN - RIGHT_MARGIN]);
 
-      const lowestVoteCount = Math.min(
-        ...contestSummary.map((cs) =>
-          Math.min(...Object.values(cs).filter(Number)),
-        ),
-      );
-      const highestVoteCount = Math.max(
-        ...contestSummary.map((cs) =>
-          Math.max(...Object.values(cs).filter(Number)),
-        ),
-      );
+      const lowestVoteCount =
+        Math.min(
+          ...contestSummary.map((cs) => Math.min(...Object.values(cs.summary))),
+        ) || 0;
+      const highestVoteCount =
+        Math.max(
+          ...contestSummary.map((cs) => Math.max(...Object.values(cs.summary))),
+        ) || 0;
       const yScale = scaleLinear<number>({
         domain: [lowestVoteCount, highestVoteCount],
       }).range([HEIGHT - TOP_MARGIN, BOTTOM_MARGIN]);
       const getX = (cs: ContestSummary) => xScale(date(cs)) as number;
       const getY = (candidate: string) => (cs: ContestSummary) =>
-        yScale(cs[candidate]) as number;
+        yScale(cs.summary[candidate] || 0) as number;
 
-      ordinalColorScale?.domain;
-
-      lineGraph.current = (
+      setLineGraph(
         <>
           <Legend>
             <LegendOrdinal
@@ -128,33 +118,49 @@ export const ViewContest = () => {
                     lineHeight: '24px',
                   }}
                 >
-                  {labels.map((label, i) => (
-                    <LegendItem key={`legend-quantile-${i}`} margin="0 5px">
-                      <svg width={15} height={15}>
-                        <rect fill={label.value} width={15} height={15} />
-                      </svg>
-                      <LegendLabel align="left" margin="0 0 0 4px">
-                        {label.text}
-                      </LegendLabel>
-                    </LegendItem>
-                  ))}
+                  {labels
+                    .sort((a, b) => summary[b.text] - summary[a.text])
+                    .map((label, i) => {
+                      return (
+                        <LegendItem key={`legend-quantile-${i}`} margin="0 5px">
+                          <svg width={15} height={15}>
+                            <rect fill={label.value} width={15} height={15} />
+                          </svg>
+                          <LegendLabel align="left" margin="0 0 0 4px">
+                            {label.text}{' '}
+                            {new Intl.NumberFormat('en-US').format(
+                              summary[label.text] || 0,
+                            )}{' '}
+                            {new Intl.NumberFormat('en-US', {
+                              style: 'percent',
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }).format(
+                              (summary[label.text] || 0) / (voteCount || 1),
+                            )}
+                          </LegendLabel>
+                        </LegendItem>
+                      );
+                    })}
                 </div>
               )}
             </LegendOrdinal>
           </Legend>
           <svg height={HEIGHT} width={WIDTH}>
             <Group left={LEFT_MARGIN} top={TOP_MARGIN}>
-              {candidateNamesByVoteCount.map((candidateName) => (
-                <LinePath<ContestSummary>
-                  key={candidateName}
-                  data={contestSummary}
-                  x={getX}
-                  y={getY(candidateName)}
-                  stroke={ordinalColorScale?.(candidateName)}
-                  strokeWidth={2}
-                  transform={`translate(0, -${BOTTOM_MARGIN})`}
-                />
-              ))}
+              {candidateNames
+                .sort((a, b) => summary[a] - summary[b])
+                .map((candidateName) => (
+                  <LinePath<ContestSummary>
+                    key={candidateName}
+                    data={contestSummary}
+                    x={getX}
+                    y={getY(candidateName)}
+                    stroke={ordinalColorScale?.(candidateName)}
+                    strokeWidth={2}
+                    transform={`translate(0, -${BOTTOM_MARGIN})`}
+                  />
+                ))}
               <AxisLeft scale={yScale} top={-BOTTOM_MARGIN} />
               <AxisBottom
                 top={HEIGHT - BOTTOM_MARGIN - TOP_MARGIN}
@@ -163,7 +169,7 @@ export const ViewContest = () => {
               />
             </Group>
           </svg>
-        </>
+        </>,
       );
     }
   }, [contestSummary]);
@@ -180,14 +186,12 @@ export const ViewContest = () => {
     contestId,
   ]);
 
-  const maxObjValue = (obj?: object) =>
-    Object.keys(obj || {}).reduce(
-      (a, b) => ((obj as any)[a] > (obj as any)[b] ? a : b),
-      '',
-    );
+  const candidates = Object.entries(summary).sort(([, a], [, b]) => b - a);
+  const highestCount = Math.max(...Object.values(summary));
 
-  const leadingCandidate =
-    maxObjValue(contestSummary?.[contestSummary.length - 1]) || undefined;
+  const leadingCandidates = candidates.filter(
+    ([, count]) => count > 0 && count === highestCount,
+  );
 
   return (
     <>
@@ -199,23 +203,24 @@ export const ViewContest = () => {
         </div>
         <Typography component="h1" variant="h4" style={{ marginTop: '50px' }}>
           {contestId}
-          {leadingCandidate && ordinalColorScale && (
-            <div style={{ marginTop: '16px' }}>
+        </Typography>
+        <Typography component="h1" variant="h4" style={{ marginTop: '20px' }}>
+          {leadingCandidates.map(([candidate]) => (
+            <div key={candidate}>
               <span
                 style={{
-                  padding: '8px',
-                  backgroundColor: ordinalColorScale(leadingCandidate),
+                  backgroundColor: ordinalColorScale(candidate),
                   color: theme.palette.getContrastText(
-                    ordinalColorScale(leadingCandidate),
+                    ordinalColorScale(candidate),
                   ),
                 }}
               >
-                {leadingCandidate}
+                &nbsp;{candidate}&nbsp;
               </span>
             </div>
-          )}
+          ))}
         </Typography>
-        {lineGraph.current}
+        {lineGraph}
       </div>
     </>
   );

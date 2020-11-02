@@ -89,6 +89,6 @@
     "@visx/visx": "^1.0.0",
     "http-proxy-cli": "^2.1.0",
     "http-server": "^0.12.3",
-    "react-router-dom": "^5.2.0"
+    "react-router-dom": "^5"
   }
 }

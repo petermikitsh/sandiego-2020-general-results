@@ -21,6 +21,7 @@ import { ViewContest } from './ViewContest';
 
 const InnerApp = () => {
   const {
+    contests,
     currElectionId,
     setCurrElectionId,
     currResultId,
@@ -28,11 +29,8 @@ const InnerApp = () => {
     currContestId,
     setCurrContestId,
     metadata,
-    electionData,
-    resultSet,
+    maps,
   } = useContext(AppContext);
-
-  const contests = [...new Set(resultSet?.map((result) => result.contest))];
 
   return (
     <>
@@ -74,7 +72,7 @@ const InnerApp = () => {
                 setCurrContestId?.(event.target.value as string);
               }}
             >
-              {contests.map((contestName) => (
+              {contests[currElectionId]?.map((contestName) => (
                 <MenuItem key={contestName} value={contestName}>
                   {contestName}
                 </MenuItem>
@@ -111,16 +109,17 @@ const InnerApp = () => {
           marginTop: '50px',
         }}
       >
-        {electionData?.precincts.features && (
-          <Map geojson={electionData?.precincts as any} />
+        {maps?.[currElectionId]?.precincts.features && (
+          <Map geojson={maps?.[currElectionId]?.precincts as any} />
         )}
         <Typography component="h1" variant="h4" style={{ marginTop: '20px' }}>
           Contests
         </Typography>
         <Typography style={{ maxWidth: '600px', lineHeight: '35px' }}>
-          {contests.map((contestName) => (
+          {contests[currElectionId]?.map((contestName) => (
             <React.Fragment key={contestName}>
               <Link
+                // target="_blank"
                 component={MuiLink}
                 to={`/elections/${currElectionId}/contests/${encodeURIComponent(
                   contestName,

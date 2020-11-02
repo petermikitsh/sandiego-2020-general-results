@@ -1,6 +1,5 @@
 interface PrecinctContestResult {
   id: string;
-  contest: string;
   candidate: string;
   votes: number;
   consName: string;
@@ -14,7 +13,7 @@ export interface Election {
   consolidations: Consolidations;
 }
 
-interface Consolidations {
+export interface Consolidations {
   type: string;
   features: Feature[];
 }
@@ -37,7 +36,7 @@ enum GeometryType {
   Polygon = 'Polygon',
 }
 
-interface Precincts {
+export interface Precincts {
   type: string;
   features: {
     type: 'Feature';
