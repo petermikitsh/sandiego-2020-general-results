@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { HashRouter, Link, Switch, Route } from 'react-router-dom';
 import { Star } from '@material-ui/icons';
 import { format } from 'date-fns';
@@ -18,6 +18,8 @@ import {
 import { Map } from './Map';
 import { AppContext, AppProvider } from './utils';
 import { ViewContest } from './ViewContest';
+import { Legend } from './Legend';
+import type { ContestSummary } from './utils';
 
 const InnerApp = () => {
   const {
@@ -28,9 +30,34 @@ const InnerApp = () => {
     setCurrResultId,
     currContestId,
     setCurrContestId,
+    getContestSummary,
     metadata,
     maps,
   } = useContext(AppContext);
+  const [contestSummaries, setContestSummary] = useState<ContestSummary[]>([]);
+  const [firstContestSummary] = contestSummaries;
+
+  const resultTime = metadata
+    ?.find((election) => election.electionId === currElectionId)
+    ?.results.find((result) => result.resultId === currResultId)?.createdAt;
+
+  const currSummary = contestSummaries.find(
+    (cs) => cs.createdAt === resultTime,
+  );
+
+  console.log(currSummary);
+
+  React.useEffect(() => {
+    (async () => {
+      if (currElectionId && currContestId) {
+        const newSummary = await getContestSummary?.(
+          currElectionId,
+          currContestId,
+        );
+        newSummary && setContestSummary(newSummary);
+      }
+    })();
+  }, [getContestSummary, currElectionId, currContestId]);
 
   return (
     <>
@@ -109,8 +136,25 @@ const InnerApp = () => {
           marginTop: '50px',
         }}
       >
-        {maps?.[currElectionId]?.precincts.features && (
-          <Map geojson={maps?.[currElectionId]?.precincts as any} />
+        {maps?.[currElectionId]?.precincts.features && currSummary?.summary && (
+          <>
+            <div style={{ position: 'relative' }}>
+              <Map
+                geojson={maps?.[currElectionId]?.precincts as any}
+                contestSummary={currSummary}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  maxWidth: '400px',
+                }}
+              >
+                <Legend stack border summary={currSummary?.summary} overflow />
+              </div>
+            </div>
+          </>
         )}
         <Typography component="h1" variant="h4" style={{ marginTop: '20px' }}>
           Contests

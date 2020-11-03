@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { quantize } from 'd3-interpolate';
+import { scaleOrdinal } from '@visx/scale';
+import { interpolateTurbo } from 'd3-scale-chromatic';
 import { default as Metadata } from '../data/metadata.json';
 import type { Election, Consolidations, ResultSet, Precincts } from './types';
 
@@ -74,7 +77,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     (async () => {
-      if (currElectionId && currResultId) {
+      if (currElectionId) {
         if (!contests[currElectionId]) {
           const newContests = await getFile<string[]>(
             `${currElectionId}_contests.json`,
@@ -89,7 +92,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
     })();
-  }, [currElectionId, currResultId, contests, setCurrContestId, setContests]);
+  }, [currElectionId, contests, setCurrContestId, setContests]);
 
   return (
     <AppContext.Provider
@@ -129,4 +132,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       {children}
     </AppContext.Provider>
   );
+};
+
+export const getColorScaleForSummary = (summary: ContestSummary['summary']) => {
+  const candidateNames = Object.keys(summary);
+  const ordinalColorScale = scaleOrdinal<string, string>({
+    domain: candidateNames,
+    range: quantize(interpolateTurbo, candidateNames.length),
+  });
+  return ordinalColorScale;
 };

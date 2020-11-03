@@ -1,39 +1,13 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { LegendOrdinal, LegendItem, LegendLabel } from '@visx/legend';
 import { scaleTime, scaleLinear } from '@visx/scale';
 import { Group } from '@visx/group';
 import { LinePath } from '@visx/shape';
 import { AxisLeft, AxisBottom } from '@visx/axis';
 import { Link, useParams } from 'react-router-dom';
-import { scaleOrdinal } from '@visx/scale';
 import { Link as MuiLink, Typography, useTheme } from '@material-ui/core';
-import { quantize } from 'd3-interpolate';
-import { interpolateTurbo } from 'd3-scale-chromatic';
-import { AppContext } from './utils';
+import { AppContext, getColorScaleForSummary } from './utils';
 import type { ContestSummary } from './utils';
-
-interface LegendProps {
-  children: React.ReactNode;
-}
-
-const Legend: React.FC<LegendProps> = ({ children }: LegendProps) => {
-  return (
-    <div className="legend">
-      {children}
-      <style>{`
-        .legend {
-          line-height: 0.9em;
-          font-size: 10px;
-          padding: 10px 10px;
-          float: left;
-          border: 1px solid rgba(255, 255, 255, 0.3);
-          border-radius: 8px;
-          margin: 5px 5px;
-        }
-      `}</style>
-    </div>
-  );
-};
+import { Legend } from './Legend';
 
 export const ViewContest = () => {
   const { electionId, contestId: encodedContestId } = useParams<{
@@ -56,13 +30,8 @@ export const ViewContest = () => {
   const [contestSummary, setContestSummary] = useState<ContestSummary[]>();
 
   const { summary = {} } = contestSummary?.[contestSummary.length - 1] || {};
-  const voteCount = Object.values(summary).reduce((sum, x) => sum + x, 0);
   const candidateNames = Object.keys(summary);
-
-  const ordinalColorScale = scaleOrdinal<string, string>({
-    domain: candidateNames,
-    range: quantize(interpolateTurbo, candidateNames.length),
-  });
+  const ordinalColorScale = getColorScaleForSummary(summary);
 
   React.useEffect(() => {
     (async () => {
@@ -104,48 +73,7 @@ export const ViewContest = () => {
 
       setLineGraph(
         <>
-          <Legend>
-            <LegendOrdinal
-              scale={ordinalColorScale as any}
-              labelFormat={(label) => `${(label as string).toUpperCase()}`}
-            >
-              {(labels) => (
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    flexWrap: 'wrap',
-                    lineHeight: '24px',
-                  }}
-                >
-                  {labels
-                    .sort((a, b) => summary[b.text] - summary[a.text])
-                    .map((label, i) => {
-                      return (
-                        <LegendItem key={`legend-quantile-${i}`} margin="0 5px">
-                          <svg width={15} height={15}>
-                            <rect fill={label.value} width={15} height={15} />
-                          </svg>
-                          <LegendLabel align="left" margin="0 0 0 4px">
-                            {label.text}{' '}
-                            {new Intl.NumberFormat('en-US').format(
-                              summary[label.text] || 0,
-                            )}{' '}
-                            {new Intl.NumberFormat('en-US', {
-                              style: 'percent',
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }).format(
-                              (summary[label.text] || 0) / (voteCount || 1),
-                            )}
-                          </LegendLabel>
-                        </LegendItem>
-                      );
-                    })}
-                </div>
-              )}
-            </LegendOrdinal>
-          </Legend>
+          <Legend summary={summary} border overflow />
           <svg height={HEIGHT} width={WIDTH}>
             <Group left={LEFT_MARGIN} top={TOP_MARGIN}>
               {candidateNames

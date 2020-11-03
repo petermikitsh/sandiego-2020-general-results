@@ -4,19 +4,68 @@ import type { GeoPermissibleObjects } from '@visx/geo/lib/types';
 import { Zoom } from '@visx/zoom';
 import { geoMercator } from 'd3-geo';
 import styled from 'styled-components';
+import type { ContestSummary } from './utils';
+import { Legend } from './Legend';
+import { getColorScaleForSummary } from './utils';
+import { Tooltip } from '@material-ui/core';
+
+interface MakeGradientsProps {
+  colors: string[];
+  id: string;
+}
+
+const MakeGradients: React.FC<MakeGradientsProps> = ({
+  colors,
+  id,
+}: MakeGradientsProps) => {
+  const meta = colors.reduce(
+    (acc, currColor, index) => {
+      const startPercentile = index / colors.length;
+      const endPercentile = (index + 1) / colors.length;
+
+      return [
+        ...acc,
+        {
+          percentile: String(startPercentile),
+          color: currColor,
+        },
+        {
+          percentile: String(endPercentile),
+          color: currColor,
+        },
+      ];
+    },
+    [] as {
+      percentile: string;
+      color: string;
+    }[],
+  );
+
+  return (
+    <linearGradient
+      id={id}
+      gradientUnits="userSpaceOnUse"
+      x2="5"
+      spreadMethod="repeat"
+      gradientTransform="rotate(45)"
+    >
+      {meta.map(({ percentile, color }) => (
+        <stop
+          key={`${percentile}${color}`}
+          offset={percentile}
+          stopColor={color}
+        />
+      ))}
+    </linearGradient>
+  );
+};
 
 const HEIGHT = 500;
 const WIDTH = 800;
 
-interface MapProps {
-  geojson: GeoPermissibleObjects[];
-}
-
 const Polygon = styled.path`
   stroke: #000;
   stroke-width: 0.1px;
-  fill: #fff;
-  fill-opacity: 0.001;
   cursor: pointer;
 
   &:hover:not([data-id='SDCOUNTY']) {
@@ -24,23 +73,29 @@ const Polygon = styled.path`
   }
 `;
 
-export const Map = ({ geojson }: MapProps) => {
-  const boxRef = React.useRef(
-    <rect
-      x={0}
-      y={0}
-      width={WIDTH}
-      height={HEIGHT}
-      stroke="#000"
-      strokeWidth="5px"
-      fill="transparent"
-    />,
-  );
+interface MapProps {
+  geojson: GeoPermissibleObjects[];
+  contestSummary: ContestSummary;
+}
+
+export const Map: React.FC<MapProps> = ({
+  geojson,
+  contestSummary,
+}: MapProps) => {
   const [projection, setProjection] = React.useState<React.ReactNode>(null);
 
   useEffect(() => {
     (async () => {
       const sdcounty = await import('./sdcounty.json');
+      const colorScale = getColorScaleForSummary(contestSummary.summary);
+      const byPrecinct = contestSummary.results.reduce((acc, currValue) => {
+        const { candidate, id: precinctId, votes } = currValue;
+        acc[precinctId] = acc[precinctId] || {};
+        acc[precinctId][candidate] =
+          (acc?.[precinctId]?.[candidate] || 0) + votes;
+        return acc;
+      }, {} as { [key: string]: { [key: string]: number } });
+
       setProjection(
         <CustomProjection
           projection={() =>
@@ -50,7 +105,7 @@ export const Map = ({ geojson }: MapProps) => {
         >
           {(customProjection) =>
             customProjection.features.map(({ path, feature }, id) => {
-              const buggyRegions = [
+              const buggyRegions: string[] = [
                 'PALA',
                 'OAK GROVE',
                 'SAN FELIPE',
@@ -75,19 +130,82 @@ export const Map = ({ geojson }: MapProps) => {
                 return <React.Fragment key={id} />;
               }
 
+              const precinctId = (feature as any)?.properties?.PRECINCT;
+              const summary = byPrecinct[precinctId];
+              let color = '#FFF';
+              let TooltipLabel: React.FC | null = null;
+              let Gradient: React.FC | null = null;
+
+              if (precinctId && summary) {
+                const candidates = Object.entries(summary).sort(
+                  ([, a], [, b]) => b - a,
+                );
+                const highestCount = Math.max(...Object.values(summary));
+                const leadingCandidates = candidates.filter(
+                  ([, count]) => count > 0 && count === highestCount,
+                );
+                if (leadingCandidates.length) {
+                  const [
+                    [firstCandidateName, firstCount],
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                    ...rest
+                  ] = leadingCandidates;
+                  const totalVotes = Object.values(candidates).reduce(
+                    (currSum, [, b]) => currSum + b,
+                    0,
+                  );
+                  const colors = leadingCandidates.map(([name]) =>
+                    colorScale(name),
+                  );
+                  if (leadingCandidates.length > 1) {
+                    Gradient = () => (
+                      <MakeGradients colors={colors} id={precinctId} />
+                    );
+                  }
+
+                  color = colorScale(firstCandidateName);
+                  const percent = new Intl.NumberFormat('en-US', {
+                    style: 'percent',
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  }).format(firstCount / (totalVotes || 1));
+                  if (feature.properties.CONSNAME && firstCount) {
+                    TooltipLabel = () => (
+                      <div>
+                        <div>
+                          {feature.properties.CONSNAME} ({firstCount}/
+                          {totalVotes})
+                        </div>
+                        <div>({percent})</div>
+                      </div>
+                    );
+                  }
+                }
+              }
+
               return (
-                <Polygon
-                  key={id}
-                  d={path || ''}
-                  data-id={(feature as any)?.properties?.CONSNAME || 'SDCOUNTY'}
-                />
+                <Tooltip key={id} title={TooltipLabel ? <TooltipLabel /> : ''}>
+                  <g>
+                    <Polygon
+                      d={path || ''}
+                      fill={Gradient ? `url(#${precinctId})` : color}
+                      style={{
+                        fillOpacity: 1,
+                      }}
+                      data-id={
+                        (feature as any)?.properties?.CONSNAME || 'SDCOUNTY'
+                      }
+                    />
+                    {Gradient ? <Gradient /> : null}
+                  </g>
+                </Tooltip>
               );
             })
           }
         </CustomProjection>,
       );
     })();
-  }, [geojson]);
+  }, [geojson, contestSummary]);
 
   return (
     <Zoom
@@ -127,9 +245,12 @@ export const Map = ({ geojson }: MapProps) => {
             onMouseLeave={() => {
               if (zoom.isDragging) zoom.dragEnd();
             }}
+            style={{ border: '4px solid #000' }}
           >
-            {boxRef.current}
             <g transform={zoom.toString()}>{projection}</g>
+            {contestSummary?.summary ? (
+              <Legend summary={contestSummary.summary} />
+            ) : null}
           </svg>
         );
         return elem;
