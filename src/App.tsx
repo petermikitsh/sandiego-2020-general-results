@@ -35,7 +35,6 @@ const InnerApp = () => {
     maps,
   } = useContext(AppContext);
   const [contestSummaries, setContestSummary] = useState<ContestSummary[]>([]);
-  const [firstContestSummary] = contestSummaries;
 
   const resultTime = metadata
     ?.find((election) => election.electionId === currElectionId)
@@ -44,8 +43,6 @@ const InnerApp = () => {
   const currSummary = contestSummaries.find(
     (cs) => cs.createdAt === resultTime,
   );
-
-  console.log(currSummary);
 
   React.useEffect(() => {
     (async () => {
