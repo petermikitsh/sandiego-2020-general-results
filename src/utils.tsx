@@ -136,9 +136,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
 export const getColorScaleForSummary = (summary: ContestSummary['summary']) => {
   const candidateNames = Object.keys(summary);
+  const colors = quantize(interpolateTurbo, candidateNames.length);
+
+  const fixedColors = colors.map((color) => {
+    if (color === 'rgb(35, 23, 27)') {
+      return 'rgb(176, 172, 174)';
+    }
+    return color;
+  });
   const ordinalColorScale = scaleOrdinal<string, string>({
     domain: candidateNames,
-    range: quantize(interpolateTurbo, candidateNames.length),
+    range: fixedColors,
   });
   return ordinalColorScale;
 };
