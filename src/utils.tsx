@@ -13,7 +13,7 @@ export type ContestSummary = {
 
 async function getFile<T>(file: string) {
   const result: T = await (
-    await fetch(`/sandiego-2020-general-results/data/${file}?v=11`)
+    await fetch(`/sandiego-2020-general-results/data/${file}?v=12`)
   ).json();
   return result;
 }
