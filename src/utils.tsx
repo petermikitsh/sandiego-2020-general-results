@@ -13,7 +13,7 @@ export type ContestSummary = {
 
 async function getFile<T>(file: string) {
   const result: T = await (
-    await fetch(`/sandiego-2020-general-results/data/${file}?v=16`)
+    await fetch(`/sandiego-2020-general-results/data/${file}?v=17`)
   ).json();
   return result;
 }
@@ -50,8 +50,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [contests, setContests] = useState<AppContext['contests']>({});
 
   useEffect(() => {
-    setCurrElectionId(metadata[0].electionId);
-    setCurrResultId(metadata[0].results[0].resultId);
+    setCurrElectionId(metadata[1].electionId);
+    setCurrResultId(metadata[1].results[0].resultId);
   }, [metadata]);
 
   useEffect(() => {

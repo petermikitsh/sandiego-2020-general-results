@@ -18,3 +18,7 @@ yarn serve
 ```
 
 Then go to http://0.0.0.0:8080.
+
+### Data Sources
+
+- Recall: https://www.livevoterturnout.com/sandiegoca/LiveResults/en/Index_13.html

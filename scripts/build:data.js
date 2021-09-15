@@ -31,7 +31,7 @@ if (!existsSync(OUT_PATH)) {
   mkdirSync(OUT_PATH);
 }
 
-// Metadata
+// Metadata.json
 (async () => {
   const electionDirs = getDirectories(SOURCE_DIR);
   const elections = await Promise.all(
@@ -68,6 +68,8 @@ if (!existsSync(OUT_PATH)) {
               return 'March 3, 2020 Primary';
             case '10':
               return 'November 3, 2020 General';
+            case '13':
+              return 'September 14, 2021 Recall';
           }
         })(),
         results: results.reverse(),
@@ -80,7 +82,7 @@ if (!existsSync(OUT_PATH)) {
   );
 })();
 
-// Election Maps
+// Election Maps (electionId_precincts.json / electionId_consolidations.json)
 (async () => {
   const electionDirs = getDirectories(SOURCE_DIR);
 
@@ -114,7 +116,7 @@ if (!existsSync(OUT_PATH)) {
   });
 })();
 
-// Contest Results (per result set)
+// Contest Results (per result set) ex: (electionId_resultId_constestName.json)
 (async () =>
   getDirectories(SOURCE_DIR).map(async ({ id: electionId }) =>
     getDirectories(path.resolve(SOURCE_DIR, electionId)).map(
@@ -140,6 +142,11 @@ if (!existsSync(OUT_PATH)) {
             dynamicTyping: true,
             header: true,
             beforeFirstChunk: (chunk) => {
+              // For election 13 data, ignore first 2 lines
+              if (electionId === '13') {
+                const [, , ...rest] = chunk.split('\n');
+                return rest.join('\n');
+              }
               const [, ...rest] = chunk.split('\n');
               return rest.join('\n');
             },
